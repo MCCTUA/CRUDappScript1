@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
+      crossorigin="anonymous"
+    />
+    <style>
+      .nav-link {
+        cursor: pointer;
+      }
+      #loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 10000;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(255, 255, 255, 0.9);
+      }
+    </style>
+    <title>Hello, world!</title>
+  </head>
+  <body>
+    <main class="container">
+      <nav id="navigation">
+        <ul class="nav nav-tabs main-nav">
+          <li class="nav-item">
+            <div class="nav-link active" id="search-link">Search</div>
+          </li>
+          <li class="nav-item">
+            <div class="nav-link" id="add-customer-link">Add Customer</div>
+          </li>
+        </ul>
+      </nav>
+      <div id="app">
+        <!-- content here from JavaScript -->
+      </div>
+    </main>
+
+    <div
+      id="loading"
+      class="d-flex justify-content-center align-items-center invisible"
+    >
+      <div class="spinner-grow" style="width: 3rem; height: 3rem" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <!-- Optional JavaScript; choose one of the two! -->
+
+    <!-- Option 1: Bootstrap Bundle with Popper -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script> -->
+
+    <!-- Option 2: Separate Popper and Bootstrap JS -->
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"
+      integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js"
+      integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF"
+      crossorigin="anonymous"
+    ></script>
+
+    <script>
+      let data
+
+      function loadView(options) {
+        let id = typeof options.id === 'undefined' ? 'app' : options.id
+        let cb =
+          typeof options.callback === 'undefined'
+            ? function () {}
+            : options.callback
+        loadingStart()
+        google.script.run
+          .withSuccessHandler(function (html) {
+            document.getElementById(id).innerHTML = html
+            loadingEnd()
+            typeof options.params === 'undefined' ? cb() : cb(options.params)
+          })
+          [options.func]()
+      }
+
+      // function otherFunc(params) {
+      //   document.getElementById('h1').textContent = params.title
+      // }
+
+      function setDataForSearch() {
+        loadingStart()
+        google.script.run
+          .withSuccessHandler(function (dataReturned) {
+            // copy dataReturned array โดยการใช้ methods slice() เนื่องจากหาก ไม่มีจะเป็นการ reference position เนื่องจากเราใช้ assignment(=)
+            data = dataReturned.slice()
+            loadingEnd()
+          })
+          .getDataForSearch()
+      }
+
+      function search() {
+        let searchInput = document
+          .getElementById('searchInput')
+          .value.toString()
+          .toLowerCase()
+          .trim()
+        let searchWords = searchInput.split(/\s+/)
+        const searchColumns = [1, 2] // อ้างอิงตำแหน่งโดยใช้ array[x] โดย x คือ 1 หรือ 2 (some function)
+        // and โดยใช้ every methods และ or โดยใช้ some methods
+
+        let resultArray =
+          searchInput === ''
+            ? []
+            : data.filter(function (r) {
+                return searchWords.every(function (word) {
+                  return searchColumns.some(function (colIndex) {
+                    return (
+                      r[colIndex].toString().toLowerCase().indexOf(word) !== -1
+                    )
+                  })
+                })
+              })
+        let recordCount =
+          searchInput === '' ? '' : `Record Count ${resultArray.length}`
+        document.getElementById('searchCount').textContent = recordCount
+        const searchResultsBox = document.getElementById('searchResults')
+        const templateBox = document.getElementById('rowTemplate')
+        let template = templateBox.content
+
+        searchResultsBox.innerHTML = ''
+
+        resultArray.forEach(function (r) {
+          let tr = template.cloneNode(true)
+          let custIDColumn = tr.querySelector('.custID')
+          let firstNameColumn = tr.querySelector('.firsName')
+          let lastNameColumn = tr.querySelector('.lastName')
+          let deleteButton = tr.querySelector('.delete-button')
+          let editButton = tr.querySelector('.edit-button')
+
+          custIDColumn.textContent = r[0]
+          // Set Attribute ให้มีค่าของ id ไปกับปุ่ม โดยใช้ dataset methods -> เป็น custom atrribute จะชึ้นเป็น data-customer-id=xx
+          deleteButton.dataset.customerId = r[0]
+          editButton.dataset.customerId = r[0]
+          firstNameColumn.textContent = r[1]
+          lastNameColumn.textContent = r[2]
+
+          searchResultsBox.appendChild(tr)
+        })
+      }
+
+      function displayConfirmationDelete(e) {
+        console.log(e.target.dataset.buttonState)
+        if (e.target.dataset.buttonState === 'delete') {
+          e.target.previousElementSibling.classList.remove('d-none')
+          e.target.textContent = 'Cancel'
+          e.target.dataset.buttonState = 'cancel'
+        } else {
+          e.target.previousElementSibling.classList.add('d-none')
+          e.target.textContent = 'Delete'
+          e.target.dataset.buttonState = 'delete'
+        }
+      }
+
+      function deleteCustomer(e) {
+        let custID = e.target.dataset.customerId
+        loadingStart()
+        google.script.run
+          .withSuccessHandler(function () {
+            e.target.closest('.result-box').remove()
+            let ids = data.map(function (r) {
+              return r[0].toString().toLowerCase()
+            })
+            let index = ids.indexOf(custID.toString().toLowerCase())
+            data.splice(index, 1)
+            loadingEnd()
+          })
+          .deleteById(custID)
+      }
+
+      function afterEditViewLoads(params) {
+        //custID: e.target.dataset.customerId
+        // loading
+        loadingStart()
+        document.getElementById('customer-id').value = params.custID
+        google.script.run
+          .withSuccessHandler(function (customerInfo) {
+            document.getElementById('first-name').value = customerInfo.firstName
+            document.getElementById('last-name').value = customerInfo.lastName
+            document.getElementById('phone-number').value = customerInfo.phone
+            //done loading
+            loadingEnd()
+          })
+          .getCustomerById(params.custID)
+      }
+
+      function editCustomer() {
+        loadingStart()
+        let customerInfo = {}
+        customerInfo.firstName = document.getElementById('first-name').value
+        customerInfo.lastName = document.getElementById('last-name').value
+        customerInfo.phone = document.getElementById('phone-number').value
+
+        let id = document.getElementById('customer-id').value
+
+        google.script.run
+          .withSuccessHandler(function (res) {
+            document
+              .getElementById('save-success-message')
+              .classList.remove('invisible')
+            loadingEnd()
+            setTimeout(function () {
+              document
+                .getElementById('save-success-message')
+                .classList.add('invisible')
+              document.getElementById('customer-id').value = ''
+              document.getElementById('first-name').value = ''
+              document.getElementById('last-name').value = ''
+              document.getElementById('phone-number').value = ''
+            }, 2000)
+          })
+          .editcustomerById(id, customerInfo)
+      }
+
+      function addCustomer() {
+        loadingStart()
+        let customerInfo = {}
+        customerInfo.firstName = document.getElementById('first-name').value
+        customerInfo.lastName = document.getElementById('last-name').value
+        customerInfo.phone = document.getElementById('phone-number').value
+
+        google.script.run
+          .withSuccessHandler(function () {
+            document.getElementById('first-name').value = ''
+            document.getElementById('last-name').value = ''
+            document.getElementById('phone-number').value = ''
+            document
+              .getElementById('save-success-message')
+              .classList.remove('invisible')
+            loadingEnd()
+            setTimeout(function () {
+              document
+                .getElementById('save-success-message')
+                .classList.add('invisible')
+            }, 2000)
+          })
+          .addCutomer(customerInfo)
+      }
+
+      function loadSearchView() {
+        loadView({ func: 'loadSearchView', callback: setDataForSearch })
+        // loadView({func: 'loadSearchView', callback: otherFunc, params: { title : 'Another Seach'}})
+      }
+
+      function loadAddCustomerView() {
+        loadView({ func: 'loadAddCustomerView' })
+      }
+
+      function loadEditCustomerView(e) {
+        loadView({
+          func: 'loadEditCustomerView',
+          callback: afterEditViewLoads,
+          params: { custID: e.target.dataset.customerId },
+        })
+      }
+
+      function activeTabChange(e) {
+        let navLinks = document.querySelectorAll('.main-nav .nav-link')
+
+        navLinks.forEach(function (linkEl) {
+          linkEl.classList.remove('active')
+        })
+        e.target.classList.add('active')
+      }
+
+      function loadingStart() {
+        document.getElementById('loading').classList.remove('invisible')
+      }
+
+      function loadingEnd() {
+        document.getElementById('loading').classList.add('invisible')
+      }
+
+      document
+        .getElementById('search-link')
+        .addEventListener('click', loadSearchView)
+      document
+        .getElementById('add-customer-link')
+        .addEventListener('click', loadAddCustomerView)
+
+      function inputEventHandler(e) {
+        if (e.target.matches('#searchInput')) {
+          search()
+        }
+      }
+
+      function clickEventHandler(e) {
+        if (e.target.matches('.delete-button')) {
+          deleteCustomer(e)
+        }
+        if (e.target.matches('.before-delete-button')) {
+          displayConfirmationDelete(e)
+        }
+        if (e.target.matches('.edit-button')) {
+          loadEditCustomerView(e)
+        }
+        if (e.target.matches('#save-changes')) {
+          editCustomer()
+        }
+        if (e.target.matches('#cancel-changes')) {
+          loadSearchView()
+        }
+        if (e.target.matches('#add-customer-button')) {
+          addCustomer()
+        }
+      }
+
+      function navClickEventHandler(e) {
+        if (e.target.matches('.nav-link')) {
+          activeTabChange(e)
+        }
+      }
+
+      document
+        .getElementById('app')
+        .addEventListener('input', inputEventHandler)
+      document
+        .getElementById('app')
+        .addEventListener('click', clickEventHandler)
+      document
+        .getElementById('navigation')
+        .addEventListener('click', navClickEventHandler)
+      document.addEventListener('DOMContentLoaded', loadSearchView)
+    </script>
+  </body>
+</html>
