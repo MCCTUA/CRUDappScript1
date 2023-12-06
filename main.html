@@ -84,8 +84,10 @@
         loadingStart()
         google.script.run
           .withSuccessHandler(function (html) {
+            //นำ HTML ของแต่ละ Tab มาแสดง
             document.getElementById(id).innerHTML = html
             loadingEnd()
+            // Run callback (cb()) ที่นี้ ถ้ามีการส่ง  callback function เข้ามา
             typeof options.params === 'undefined' ? cb() : cb(options.params)
           })
           [options.func]()
